@@ -1,25 +1,22 @@
+// src/pages/PointOfSale.jsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/config';
-import { collection, onSnapshot, writeBatch, doc, increment, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, writeBatch, doc, increment } from 'firebase/firestore';
 import { ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
 import Modal from '../components/common/Modal';
 
-// --- Modal para seleccionar LOTE y AÑADIR al carrito ---
 const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification, cart }) => {
     const [selectedLotId, setSelectedLotId] = useState('');
     const [quantity, setQuantity] = useState(1);
     const [sellType, setSellType] = useState('unit');
 
-    // Usamos useMemo para evitar que esta lista se recalcule en cada render,
-    // lo que estabiliza el comportamiento del useEffect.
     const availableLots = useMemo(() => {
         return lots
             .filter(l => l.productId === product.id && l.isActive && l.stock > 0)
             .sort((a, b) => (a.expiryDate?.toDate() || 0) - (b.expiryDate?.toDate() || 0));
     }, [lots, product.id]);
 
-    // Este useEffect ahora solo se ejecuta cuando la lista de lotes disponibles cambia
-    // (es decir, cuando se abre el modal para un producto nuevo).
     useEffect(() => {
         if (availableLots.length > 0) {
             setSelectedLotId(availableLots[0].id);
@@ -47,7 +44,6 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
     const getMaxQuantity = () => {
         if (!selectedLot) return 0;
         
-        // Calcula cuántas unidades de ESTE LOTE ya están en el carrito
         const unitsInCart = cart
             .filter(item => item.id === selectedLot.id)
             .reduce((acc, item) => {
@@ -57,7 +53,6 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
                 return acc;
             }, 0);
         
-        // Calcula el stock real disponible para añadir
         const remainingStock = selectedLot.stock - unitsInCart;
 
         if (sellType === 'unit') return remainingStock;
@@ -113,9 +108,7 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
     );
 };
 
-
-// --- Componente principal del Punto de Venta ---
-const PointOfSale = ({ showNotification }) => {
+const PointOfSale = ({ showNotification, user }) => {
     const [products, setProducts] = useState([]);
     const [lots, setLots] = useState([]);
     const [cart, setCart] = useState([]);
@@ -137,8 +130,7 @@ const PointOfSale = ({ showNotification }) => {
 
     const addToCart = (lot, sellType, quantity) => {
         if (quantity <= 0) return;
-
-        // Doble verificación del stock antes de añadir al carrito
+        
         const unitsInCart = cart
             .filter(item => item.id === lot.id)
             .reduce((acc, item) => {
@@ -158,7 +150,7 @@ const PointOfSale = ({ showNotification }) => {
             return;
         }
         
-        const cartItemId = `${lot.id}-${sellType}`; // Usamos el ID del lote
+        const cartItemId = `${lot.id}-${sellType}`;
         
         setCart(prevCart => {
             const existingItem = prevCart.find(item => item.cartId === cartItemId);
@@ -176,11 +168,12 @@ const PointOfSale = ({ showNotification }) => {
     const removeFromCart = (cartId) => setCart(prevCart => prevCart.filter(item => item.cartId !== cartId));
     
     const handleCompleteSale = async () => {
-        if (cart.length === 0) return;
+        if (cart.length === 0 || !user) return;
         setIsProcessing(true);
         const batch = writeBatch(db);
+        
         cart.forEach(item => {
-            const lotRef = doc(db, 'productLots', item.id); // Decrementamos el stock del lote específico
+            const lotRef = doc(db, 'productLots', item.id);
             let unitsSold = 0;
             if(item.sellType === 'unit') unitsSold = item.quantity;
             else if (item.sellType === 'blister') unitsSold = item.quantity * item.unitsPerBlister;
@@ -188,7 +181,16 @@ const PointOfSale = ({ showNotification }) => {
             batch.update(lotRef, { stock: increment(-unitsSold) });
         });
         
-        batch.set(doc(collection(db, 'sales')), { date: new Date(), items: cart, total: total });
+        const saleData = {
+            date: new Date(),
+            items: cart,
+            total: total,
+            sellerId: user.uid,
+            sellerName: user.name || user.email
+        };
+        
+        batch.set(doc(collection(db, 'sales')), saleData);
+        
         try {
             await batch.commit();
             showNotification('Venta completada con éxito');

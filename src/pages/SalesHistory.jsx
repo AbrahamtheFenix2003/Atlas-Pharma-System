@@ -1,3 +1,5 @@
+// src/pages/SalesHistory.jsx
+
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment } from 'firebase/firestore';
@@ -30,7 +32,7 @@ const SalesHistory = ({ showNotification }) => {
             await runTransaction(db, async (transaction) => {
                 const saleRef = doc(db, 'sales', saleToVoid.id);
                 for (const item of saleToVoid.items) {
-                    const lotRef = doc(db, 'productLots', item.id); // Apunta al lote correcto
+                    const lotRef = doc(db, 'productLots', item.id);
                     let unitsToReturn = 0;
                     if (item.sellType === 'unit') unitsToReturn = item.quantity;
                     else if (item.sellType === 'blister') unitsToReturn = item.quantity * item.unitsPerBlister;
@@ -59,11 +61,18 @@ const SalesHistory = ({ showNotification }) => {
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full table-auto">
-                            <thead className="bg-gray-100"><tr><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Venta</th><th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th><th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th><th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th></tr></thead>
+                            <thead className="bg-gray-100">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendedor</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                                </tr>
+                            </thead>
                             <tbody className="divide-y divide-gray-200">
                                 {sales.map(sale => (
                                     <tr key={sale.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-500 truncate" style={{maxWidth: '150px'}}>{sale.id}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-800 font-medium">{sale.sellerName || 'No registrado'}</td>
                                         <td className="px-6 py-4 text-sm text-gray-900">{sale.date.toDate().toLocaleString('es-ES')}</td>
                                         <td className="px-6 py-4 text-right text-sm font-bold text-green-600">S/ {sale.total.toFixed(2)}</td>
                                         <td className="px-6 py-4 text-center space-x-4">
@@ -77,7 +86,12 @@ const SalesHistory = ({ showNotification }) => {
                     </div>
                 </div>
             )}
-            {selectedSale && <Modal onClose={() => setSelectedSale(null)}><h2 className="text-2xl font-bold mb-4">Detalles de Venta</h2><p className="mb-4">Fecha: {selectedSale.date.toDate().toLocaleString('es-ES')}</p><div className="border-t pt-4">{selectedSale.items.map((item, index) => (<div key={index} className="flex justify-between items-center py-2 border-b"><div>
+            {selectedSale && <Modal onClose={() => setSelectedSale(null)}><h2 className="text-2xl font-bold mb-4">Detalles de Venta</h2>
+                <div className="flex justify-between mb-4">
+                    <p>Fecha: {selectedSale.date.toDate().toLocaleString('es-ES')}</p>
+                    <p>Vendedor: <span className="font-semibold">{selectedSale.sellerName || 'No registrado'}</span></p>
+                </div>
+                <div className="border-t pt-4">{selectedSale.items.map((item, index) => (<div key={index} className="flex justify-between items-center py-2 border-b"><div>
                         <p className="font-medium">{item.name}</p>
                         <p className="text-xs text-gray-500">Lab: {item.laboratory} / Lote: <span className="font-mono">{item.lotNumber}</span></p>
                         <p className="text-sm text-gray-500">{item.quantity} x {item.sellType} @ S/ {item.price.toFixed(2)}</p>
