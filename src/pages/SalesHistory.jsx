@@ -1,9 +1,9 @@
 // src/pages/SalesHistory.jsx
 
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase/config';
+import { db } from '../firebase/config.js';
 import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment } from 'firebase/firestore';
-import Modal from '../components/common/Modal';
+import Modal from '../components/common/Modal.jsx';
 import { XCircle, AlertTriangle } from 'lucide-react';
 
 const SalesHistory = ({ showNotification }) => {
@@ -55,7 +55,7 @@ const SalesHistory = ({ showNotification }) => {
     };
 
     return (
-        <div className="p-6 bg-gray-50 min-h-full">
+        <div className="p-4 md:p-6 bg-gray-50 min-h-full">
             <h1 className="text-3xl font-bold text-gray-800 mb-6">Historial de Ventas</h1>
             {loading ? <p>Cargando...</p> : (
                 <div className="bg-white shadow-md rounded-lg overflow-hidden">

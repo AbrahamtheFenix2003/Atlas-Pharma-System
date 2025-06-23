@@ -1,11 +1,12 @@
 // src/pages/PointOfSale.jsx
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../firebase/config';
+import { db } from '../firebase/config.js';
 import { collection, onSnapshot, writeBatch, doc, increment } from 'firebase/firestore';
 import { ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
-import Modal from '../components/common/Modal';
+import Modal from '../components/common/Modal.jsx';
 
+// El componente AddToCartModal no cambia
 const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification, cart }) => {
     const [selectedLotId, setSelectedLotId] = useState('');
     const [quantity, setQuantity] = useState(1);
@@ -107,6 +108,7 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
         </div>
     );
 };
+
 
 const PointOfSale = ({ showNotification, user }) => {
     const [products, setProducts] = useState([]);
@@ -211,8 +213,8 @@ const PointOfSale = ({ showNotification, user }) => {
     );
 
     return (
-        <div className="flex h-screen bg-gray-50">
-            <div className="w-2/3 p-4 overflow-y-auto">
+        <div className="flex flex-col lg:flex-row h-full bg-gray-50">
+            <div className="w-full lg:w-2/3 p-4 overflow-y-auto">
                 <h2 className="text-2xl font-bold text-gray-800 mb-4">Punto de Venta</h2>
                 <input type="text" placeholder="Buscar por nombre o laboratorio..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full p-3 border rounded-lg mb-4 shadow-sm"/>
                 {loading ? <p>Cargando...</p> : (
@@ -235,7 +237,7 @@ const PointOfSale = ({ showNotification, user }) => {
                     </div>
                 )}
             </div>
-            <div className="w-1/3 bg-white p-6 shadow-lg flex flex-col">
+            <div className="w-full lg:w-1/3 bg-white p-6 shadow-lg flex flex-col h-[50vh] lg:h-full">
                 <h3 className="text-xl font-bold border-b pb-3 mb-4 flex items-center"><ShoppingCart className="mr-2"/> Carrito</h3>
                 {cart.length === 0 ? <p className="text-gray-500 flex-grow text-center mt-20">El carrito está vacío</p> : (
                     <div className="flex-grow overflow-y-auto -mx-6 px-6">
