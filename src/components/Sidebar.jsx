@@ -1,6 +1,6 @@
 // src/components/Sidebar.jsx
 
-import { Home, Package, ShoppingCart, History, Bell, BarChart3, LogOut, User, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { Home, Package, ShoppingCart, History, Bell, BarChart3, LogOut, User, ChevronsLeft, ChevronsRight, Landmark } from 'lucide-react';
 import { auth } from '../firebase/config.js';
 import { signOut } from 'firebase/auth';
 
@@ -61,6 +61,7 @@ const Sidebar = ({ view, setView, user, isOpen, setIsOpen, isCollapsed, setIsCol
                 <NavItem icon={<ShoppingCart size={24} />} label="Punto de Venta" currentView={view} targetView="pos" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
                 <NavItem icon={<Bell size={24} />} label="Alertas" currentView={view} targetView="alerts" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
                 <NavItem icon={<History size={24} />} label="Historial" currentView={view} targetView="history" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
+                <NavItem icon={<Landmark size={24} />} label="Caja" currentView={view} targetView="cash-register" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
 
                 {user.role === 'admin' && (
                     <>

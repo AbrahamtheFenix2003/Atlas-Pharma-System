@@ -1,15 +1,21 @@
 // src/pages/Login.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth } from '../firebase/config';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { LogIn } from 'lucide-react';
 
-const Login = ({ showNotification }) => {
+const Login = ({ initialError }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        if (initialError) {
+            setError(initialError);
+        }
+    }, [initialError]);
 
     const handleLogin = async (e) => {
         e.preventDefault();

@@ -18,12 +18,14 @@ import PointOfSale from './pages/PointOfSale.jsx';
 import SalesHistory from './pages/SalesHistory.jsx';
 import Reports from './pages/Reports.jsx';
 import Alerts from './pages/Alerts.jsx';
+import CashRegister from './pages/CashRegister.jsx';
 
 function App() {
   const [view, setView] = useState('dashboard');
   const [notification, setNotification] = useState({ show: false, message: '', type: '' });
   const [user, setUser] = useState(null); 
   const [loadingAuth, setLoadingAuth] = useState(true);
+  const [loginError, setLoginError] = useState('');
   
   const [isSidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -40,7 +42,7 @@ function App() {
             setView('dashboard');
           }
         } else {
-          showNotification('Tu usuario no tiene un rol asignado.', 'error');
+          setLoginError('Tu usuario no tiene un rol asignado.');
           await signOut(auth);
           setUser(null);
         }
@@ -71,6 +73,7 @@ function App() {
       case 'history': return <SalesHistory {...props} />;
       case 'reports': return <Reports {...props} />;
       case 'alerts': return <Alerts {...props} />;
+      case 'cash-register': return <CashRegister {...props} />;
       default: return <Dashboard {...props} />;
     }
   };
@@ -80,7 +83,7 @@ function App() {
   }
   
   if (!user) {
-    return <Login showNotification={showNotification} />;
+    return <Login initialError={loginError} />;
   }
   
   return (

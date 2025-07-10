@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/config.js';
-import { collection, onSnapshot, writeBatch, doc, increment } from 'firebase/firestore';
-import { ShoppingCart, DollarSign, Trash2 } from 'lucide-react';
+import { collection, onSnapshot, writeBatch, doc, increment, query, where, getDocs, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { ShoppingCart, DollarSign, Trash2, Landmark } from 'lucide-react';
 import Modal from '../components/common/Modal.jsx';
 
 // El componente AddToCartModal no cambia
@@ -118,6 +118,7 @@ const PointOfSale = ({ showNotification, user }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [cashDrawer, setCashDrawer] = useState(null);
 
     useEffect(() => {
         const unsubProducts = onSnapshot(collection(db, "products"), (snapshot) => {
@@ -129,6 +130,25 @@ const PointOfSale = ({ showNotification, user }) => {
         });
         return () => { unsubProducts(); unsubLots(); };
     }, []);
+
+    useEffect(() => {
+        const fetchCashDrawer = async () => {
+            if (!user) return;
+            const q = query(
+                collection(db, 'cash_drawers'),
+                where('status', '==', 'open'),
+                where('userId', '==', user.uid)
+            );
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                const drawer = querySnapshot.docs[0];
+                setCashDrawer({ id: drawer.id, ...drawer.data() });
+            } else {
+                setCashDrawer(null);
+            }
+        };
+        fetchCashDrawer();
+    }, [user]);
 
     const addToCart = (lot, sellType, quantity) => {
         if (quantity <= 0) return;
@@ -190,8 +210,20 @@ const PointOfSale = ({ showNotification, user }) => {
             sellerId: user.uid,
             sellerName: user.name || user.email
         };
-        
-        batch.set(doc(collection(db, 'sales')), saleData);
+
+        const saleDocRef = doc(collection(db, 'sales'));
+        batch.set(saleDocRef, saleData);
+
+        if (cashDrawer) {
+            const drawerRef = doc(db, 'cash_drawers', cashDrawer.id);
+            batch.update(drawerRef, {
+                transactions: arrayUnion({
+                    saleId: saleDocRef.id,
+                    amount: total,
+                    date: serverTimestamp()
+                })
+            });
+        }
         
         try {
             await batch.commit();
@@ -238,27 +270,40 @@ const PointOfSale = ({ showNotification, user }) => {
                 )}
             </div>
             <div className="w-full lg:w-1/3 bg-white p-6 shadow-lg flex flex-col h-[50vh] lg:h-full">
-                <h3 className="text-xl font-bold border-b pb-3 mb-4 flex items-center"><ShoppingCart className="mr-2"/> Carrito</h3>
-                {cart.length === 0 ? <p className="text-gray-500 flex-grow text-center mt-20">El carrito está vacío</p> : (
-                    <div className="flex-grow overflow-y-auto -mx-6 px-6">
-                        {cart.map(item => (
-                            <div key={item.cartId} className="flex justify-between items-center mb-4">
-                                <div>
-                                    <p className="font-semibold">{item.name} <span className="text-xs font-mono text-gray-400">({item.lotNumber})</span></p>
-                                    <p className="text-sm text-gray-500">{item.quantity} x {item.sellType} @ S/ {item.price.toFixed(2)}</p>
-                                </div>
-                                <div className="flex items-center">
-                                    <p className="w-20 text-right font-bold">S/ {(item.price * item.quantity).toFixed(2)}</p>
-                                    <button onClick={() => removeFromCart(item.cartId)} className="ml-2 text-red-500 hover:text-red-700" title="Quitar producto"><Trash2 size={18} /></button>
-                                </div>
-                            </div>
-                        ))}
+                {!cashDrawer ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center">
+                        <Landmark size={48} className="text-red-500 mb-4" />
+                        <h3 className="text-xl font-bold text-gray-800">Caja Cerrada</h3>
+                        <p className="text-gray-600 mb-4">Debes abrir la caja para registrar ventas.</p>
+                        <button onClick={() => setView('cash-register')} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
+                            Ir a Gestión de Caja
+                        </button>
                     </div>
+                ) : (
+                    <>
+                        <h3 className="text-xl font-bold border-b pb-3 mb-4 flex items-center"><ShoppingCart className="mr-2"/> Carrito</h3>
+                        {cart.length === 0 ? <p className="text-gray-500 flex-grow text-center mt-20">El carrito está vacío</p> : (
+                            <div className="flex-grow overflow-y-auto -mx-6 px-6">
+                                {cart.map(item => (
+                                    <div key={item.cartId} className="flex justify-between items-center mb-4">
+                                        <div>
+                                            <p className="font-semibold">{item.name} <span className="text-xs font-mono text-gray-400">({item.lotNumber})</span></p>
+                                            <p className="text-sm text-gray-500">{item.quantity} x {item.sellType} @ S/ {item.price.toFixed(2)}</p>
+                                        </div>
+                                        <div className="flex items-center">
+                                            <p className="w-20 text-right font-bold">S/ {(item.price * item.quantity).toFixed(2)}</p>
+                                            <button onClick={() => removeFromCart(item.cartId)} className="ml-2 text-red-500 hover:text-red-700" title="Quitar producto"><Trash2 size={18} /></button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                        <div className="border-t pt-4 mt-auto">
+                            <div className="flex justify-between items-center text-2xl font-bold mb-4"><span>TOTAL</span><span>S/ {total.toFixed(2)}</span></div>
+                            <button onClick={handleCompleteSale} disabled={cart.length === 0 || isProcessing} className="w-full bg-green-500 text-white p-4 rounded-lg text-lg font-bold hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center">{isProcessing ? "Procesando..." : <><DollarSign className="mr-2" /> Completar Venta</>}</button>
+                        </div>
+                    </>
                 )}
-                <div className="border-t pt-4 mt-auto">
-                    <div className="flex justify-between items-center text-2xl font-bold mb-4"><span>TOTAL</span><span>S/ {total.toFixed(2)}</span></div>
-                    <button onClick={handleCompleteSale} disabled={cart.length === 0 || isProcessing} className="w-full bg-green-500 text-white p-4 rounded-lg text-lg font-bold hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center">{isProcessing ? "Procesando..." : <><DollarSign className="mr-2" /> Completar Venta</>}</button>
-                </div>
             </div>
             {selectedProduct && <Modal onClose={() => setSelectedProduct(null)}><AddToCartModal product={selectedProduct} lots={lots} cart={cart} onAddToCart={addToCart} onClose={() => setSelectedProduct(null)} showNotification={showNotification} /></Modal>}
         </div>
