@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config.js';
-import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment, updateDoc } from 'firebase/firestore';
 import Modal from '../components/common/Modal.jsx';
 import { XCircle, AlertTriangle } from 'lucide-react';
 
@@ -30,25 +30,51 @@ const SalesHistory = ({ showNotification }) => {
         setIsVoiding(true);
         try {
             await runTransaction(db, async (transaction) => {
+                // --- FASE DE LECTURA ---
                 const saleRef = doc(db, 'sales', saleToVoid.id);
-                for (const item of saleToVoid.items) {
-                    const lotRef = doc(db, 'productLots', item.id);
-                    let unitsToReturn = 0;
-                    if (item.sellType === 'unit') unitsToReturn = item.quantity;
-                    else if (item.sellType === 'blister') unitsToReturn = item.quantity * item.unitsPerBlister;
-                    else if (item.sellType === 'box') unitsToReturn = item.quantity * item.unitsPerBox;
-                    
-                    if(unitsToReturn > 0) {
-                        transaction.update(lotRef, { stock: increment(unitsToReturn) });
-                    }
+                let drawerRef, drawerDoc;
+
+                if (saleToVoid.cashDrawerId) {
+                    drawerRef = doc(db, 'cash_drawers', saleToVoid.cashDrawerId);
+                    drawerDoc = await transaction.get(drawerRef);
                 }
-                transaction.delete(saleRef);
+
+                const lotRefs = saleToVoid.items.map(item => doc(db, 'productLots', item.id));
+                const lotDocs = await Promise.all(lotRefs.map(ref => transaction.get(ref)));
+
+                // --- FASE DE ESCRITURA ---
+                transaction.update(saleRef, { status: 'voided' });
+
+                if (saleToVoid.cashDrawerId && drawerDoc.exists()) {
+                    const drawerData = drawerDoc.data();
+                    const transactions = drawerData.transactions || [];
+                    const updatedTransactions = transactions.map(t =>
+                        t.saleId === saleToVoid.id ? { ...t, status: 'voided' } : t
+                    );
+                    transaction.update(drawerRef, { transactions: updatedTransactions });
+                }
+
+                saleToVoid.items.forEach((item, index) => {
+                    const lotDoc = lotDocs[index];
+                    if (lotDoc.exists()) {
+                        let unitsToReturn = 0;
+                        if (item.sellType === 'unit') unitsToReturn = item.quantity;
+                        else if (item.sellType === 'blister') unitsToReturn = item.quantity * item.unitsPerBlister;
+                        else if (item.sellType === 'box') unitsToReturn = item.quantity * item.unitsPerBox;
+
+                        if (unitsToReturn > 0) {
+                            transaction.update(lotRefs[index], { stock: increment(unitsToReturn) });
+                        }
+                    }
+                });
             });
+
             showNotification('Venta anulada correctamente');
-            setShowVoidConfirm(false); setSaleToVoid(null);
+            setShowVoidConfirm(false);
+            setSaleToVoid(null);
         } catch (e) {
-            console.error("Error al anular la venta: ", e);
-            showNotification('Ocurrió un error al anular la venta.', 'error');
+            console.error("Error detallado al anular la venta: ", e);
+            showNotification('Ocurrió un error al anular la venta. Revisa la consola para más detalles.', 'error');
         } finally {
             setIsVoiding(false);
         }
@@ -66,21 +92,28 @@ const SalesHistory = ({ showNotification }) => {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vendedor</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
+                                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                                     <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-200">
-                                {sales.map(sale => (
-                                    <tr key={sale.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-800 font-medium">{sale.sellerName || 'No registrado'}</td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">{sale.date.toDate().toLocaleString('es-ES')}</td>
-                                        <td className="px-6 py-4 text-right text-sm font-bold text-green-600">S/ {sale.total.toFixed(2)}</td>
-                                        <td className="px-6 py-4 text-center space-x-4">
-                                            <button onClick={() => setSelectedSale(sale)} className="text-blue-600 hover:underline">Ver</button>
-                                            <button onClick={() => handleOpenVoidModal(sale)} className="text-red-600 hover:text-red-800" title="Anular Venta"><XCircle size={18}/></button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                {sales.map(sale => {
+                                    const isVoided = sale.status === 'voided';
+                                    return (
+                                        <tr key={sale.id} className={`${isVoided ? 'bg-red-50 text-gray-400 line-through' : 'hover:bg-gray-50'}`}>
+                                            <td className="px-6 py-4 text-sm font-medium">{sale.sellerName || 'No registrado'}</td>
+                                            <td className="px-6 py-4 text-sm">{sale.date.toDate().toLocaleString('es-ES')}</td>
+                                            <td className={`px-6 py-4 text-right text-sm font-bold ${isVoided ? '' : 'text-green-600'}`}>S/ {sale.total.toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-center text-sm">
+                                                {isVoided ? <span className='font-bold text-red-500'>Anulada</span> : <span className='font-bold text-green-500'>Completada</span>}
+                                            </td>
+                                            <td className="px-6 py-4 text-center space-x-4">
+                                                <button onClick={() => setSelectedSale(sale)} disabled={isVoided} className="text-blue-600 hover:underline disabled:text-gray-400 disabled:cursor-not-allowed">Ver</button>
+                                                <button onClick={() => handleOpenVoidModal(sale)} disabled={isVoided} className="text-red-600 hover:text-red-800 disabled:text-gray-400 disabled:cursor-not-allowed" title="Anular Venta"><XCircle size={18}/></button>
+                                            </td>
+                                        </tr>
+                                    )
+                                })}
                             </tbody>
                         </table>
                     </div>
@@ -88,8 +121,14 @@ const SalesHistory = ({ showNotification }) => {
             )}
             {selectedSale && <Modal onClose={() => setSelectedSale(null)}><h2 className="text-2xl font-bold mb-4">Detalles de Venta</h2>
                 <div className="flex justify-between mb-4">
-                    <p>Fecha: {selectedSale.date.toDate().toLocaleString('es-ES')}</p>
-                    <p>Vendedor: <span className="font-semibold">{selectedSale.sellerName || 'No registrado'}</span></p>
+                    <div>
+                        <p>Fecha: {selectedSale.date.toDate().toLocaleString('es-ES')}</p>
+                        <p>Vendedor: <span className="font-semibold">{selectedSale.sellerName || 'No registrado'}</span></p>
+                    </div>
+                    <div className='text-right'>
+                        <p>Método de Pago:</p> 
+                        <p className='font-bold'>{selectedSale.paymentMethod || 'No especificado'}</p>
+                    </div>
                 </div>
                 <div className="border-t pt-4">{selectedSale.items.map((item, index) => (<div key={index} className="flex justify-between items-center py-2 border-b"><div>
                         <p className="font-medium">{item.name}</p>

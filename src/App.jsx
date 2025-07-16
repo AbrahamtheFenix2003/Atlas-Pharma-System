@@ -69,7 +69,7 @@ function App() {
     switch (view) {
       case 'dashboard': return <Dashboard {...props} />;
       case 'inventory': return <Inventory {...props} />;
-      case 'pos': return <PointOfSale {...props} />;
+      case 'pos': return <PointOfSale {...props} setView={setView} />;
       case 'history': return <SalesHistory {...props} />;
       case 'reports': return <Reports {...props} />;
       case 'alerts': return <Alerts {...props} />;

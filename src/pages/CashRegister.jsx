@@ -84,6 +84,26 @@ const CashRegister = ({ user }) => {
     }
   };
 
+  const calculateBalances = () => {
+    if (!cashDrawer) return { cash: 0, yape: 0, total: 0 };
+
+    const validTransactions = cashDrawer.transactions.filter(t => t.status !== 'voided');
+
+    const cashSales = validTransactions
+      .filter(t => t.paymentMethod === 'Efectivo')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const yapeSales = validTransactions
+      .filter(t => t.paymentMethod === 'Yape')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const expectedCash = cashDrawer.openingBalance + cashSales;
+
+    return { cash: expectedCash, yape: yapeSales, total: expectedCash + yapeSales };
+  };
+
+  const balances = calculateBalances();
+
   if (loading) {
     return <div className="p-4">Cargando...</div>;
   }
@@ -96,18 +116,35 @@ const CashRegister = ({ user }) => {
       {cashDrawer ? (
         <div>
           <h2 className="text-xl font-semibold mb-4">Cerrar Caja</h2>
-          <p className="mb-2">Caja abierta por: <strong>{cashDrawer.userName}</strong></p>
-          <p className="mb-4">Saldo inicial: <strong>${cashDrawer.openingBalance.toFixed(2)}</strong></p>
+          <div className="bg-gray-100 p-4 rounded-lg mb-4">
+            <p className="mb-2">Caja abierta por: <strong>{cashDrawer.userName}</strong></p>
+            <p>Saldo inicial: <strong>S/ {cashDrawer.openingBalance.toFixed(2)}</strong></p>
+          </div>
+          <div className="bg-blue-50 p-4 rounded-lg mb-4">
+            <h3 className="font-semibold text-lg mb-2">Resumen de Caja</h3>
+            <div className="flex justify-between mb-1">
+              <span>Ventas con Yape:</span>
+              <span className="font-bold">S/ {balances.yape.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between mb-1">
+              <span>Efectivo esperado en caja:</span>
+              <span className="font-bold">S/ {balances.cash.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-xl font-bold border-t pt-2 mt-2">
+              <span>Total General Esperado:</span>
+              <span>S/ {balances.total.toFixed(2)}</span>
+            </div>
+          </div>
           <form onSubmit={handleCloseDrawer}>
             <div className="mb-4">
-              <label htmlFor="closingBalance" className="block text-lg font-medium text-gray-700">Saldo de Cierre</label>
+              <label htmlFor="closingBalance" className="block text-lg font-medium text-gray-700">Saldo de Cierre (conteo de efectivo)</label>
               <input
                 type="number"
                 id="closingBalance"
                 value={closingBalance}
                 onChange={(e) => setClosingBalance(e.target.value)}
                 className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Introduce el saldo final"
+                placeholder="Introduce el saldo final contado en efectivo"
               />
             </div>
             <button

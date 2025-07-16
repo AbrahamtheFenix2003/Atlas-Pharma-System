@@ -110,7 +110,7 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
 };
 
 
-const PointOfSale = ({ showNotification, user }) => {
+const PointOfSale = ({ showNotification, user, setView }) => {
     const [products, setProducts] = useState([]);
     const [lots, setLots] = useState([]);
     const [cart, setCart] = useState([]);
@@ -189,8 +189,14 @@ const PointOfSale = ({ showNotification, user }) => {
 
     const removeFromCart = (cartId) => setCart(prevCart => prevCart.filter(item => item.cartId !== cartId));
     
-    const handleCompleteSale = async () => {
+    const handleCompleteSale = async (paymentMethod) => {
         if (cart.length === 0 || !user) return;
+
+        if (!cashDrawer) {
+            showNotification('No se puede procesar la venta porque la caja está cerrada.', 'error');
+            return;
+        }
+
         setIsProcessing(true);
         const batch = writeBatch(db);
         
@@ -208,7 +214,9 @@ const PointOfSale = ({ showNotification, user }) => {
             items: cart,
             total: total,
             sellerId: user.uid,
-            sellerName: user.name || user.email
+            sellerName: user.name || user.email,
+            paymentMethod: paymentMethod,
+            cashDrawerId: cashDrawer.id
         };
 
         const saleDocRef = doc(collection(db, 'sales'));
@@ -220,14 +228,15 @@ const PointOfSale = ({ showNotification, user }) => {
                 transactions: arrayUnion({
                     saleId: saleDocRef.id,
                     amount: total,
-                    date: serverTimestamp()
+                    date: new Date(),
+                    paymentMethod: paymentMethod
                 })
             });
         }
         
         try {
             await batch.commit();
-            showNotification('Venta completada con éxito');
+            showNotification(`Venta con ${paymentMethod} completada con éxito`);
             setCart([]);
         } catch (error) {
             console.error("Error al completar la venta: ", error);
@@ -300,7 +309,14 @@ const PointOfSale = ({ showNotification, user }) => {
                         )}
                         <div className="border-t pt-4 mt-auto">
                             <div className="flex justify-between items-center text-2xl font-bold mb-4"><span>TOTAL</span><span>S/ {total.toFixed(2)}</span></div>
-                            <button onClick={handleCompleteSale} disabled={cart.length === 0 || isProcessing} className="w-full bg-green-500 text-white p-4 rounded-lg text-lg font-bold hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center">{isProcessing ? "Procesando..." : <><DollarSign className="mr-2" /> Completar Venta</>}</button>
+                            <div className="grid grid-cols-2 gap-2">
+                                <button onClick={() => handleCompleteSale('Efectivo')} disabled={cart.length === 0 || isProcessing} className="w-full bg-green-500 text-white p-4 rounded-lg text-lg font-bold hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center">
+                                    {isProcessing ? "Procesando..." : <><DollarSign className="mr-2" /> Efectivo</>}
+                                </button>
+                                <button onClick={() => handleCompleteSale('Yape')} disabled={cart.length === 0 || isProcessing} className="w-full bg-purple-600 text-white p-4 rounded-lg text-lg font-bold hover:bg-purple-700 disabled:bg-gray-400 flex items-center justify-center">
+                                    {isProcessing ? "Procesando..." : <>Yape</>}
+                                </button>
+                            </div>
                         </div>
                     </>
                 )}
