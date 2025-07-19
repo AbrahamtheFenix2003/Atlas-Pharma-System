@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase/config.js';
-import { collection, onSnapshot, writeBatch, doc, increment, query, where, getDocs, serverTimestamp, updateDoc, arrayUnion } from 'firebase/firestore';
+import { collection, onSnapshot, writeBatch, doc, increment, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 import { ShoppingCart, DollarSign, Trash2, Landmark } from 'lucide-react';
 import Modal from '../components/common/Modal.jsx';
 
@@ -13,8 +13,10 @@ const AddToCartModal = ({ product, lots, onAddToCart, onClose, showNotification,
     const [sellType, setSellType] = useState('unit');
 
     const availableLots = useMemo(() => {
+        const today = new Date();
         return lots
             .filter(l => l.productId === product.id && l.isActive && l.stock > 0)
+            .filter(l => !l.expiryDate || l.expiryDate.toDate() >= today) // Filtrar productos vencidos
             .sort((a, b) => (a.expiryDate?.toDate() || 0) - (b.expiryDate?.toDate() || 0));
     }, [lots, product.id]);
 
@@ -209,6 +211,8 @@ const PointOfSale = ({ showNotification, user, setView }) => {
             batch.update(lotRef, { stock: increment(-unitsSold) });
         });
         
+        const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
         const saleData = {
             date: new Date(),
             items: cart,
@@ -261,17 +265,23 @@ const PointOfSale = ({ showNotification, user, setView }) => {
                 {loading ? <p>Cargando...</p> : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                         {filteredProducts.map(product => {
+                            const today = new Date();
                             const activeLots = lots.filter(l => l.productId === product.id && l.isActive);
-                            const totalStock = activeLots.reduce((sum, l) => sum + l.stock, 0);
+                            const availableLots = activeLots.filter(l => !l.expiryDate || l.expiryDate.toDate() >= today);
+                            const totalStock = availableLots.reduce((sum, l) => sum + l.stock, 0);
                             const hasStock = totalStock > 0;
+                            const hasExpiredLots = activeLots.length > availableLots.length;
 
                             return (
                                 <div key={product.id} onClick={() => hasStock && setSelectedProduct(product)} className={`bg-white p-4 rounded-lg shadow-md border-2 border-transparent transition-all flex flex-col justify-between ${!hasStock ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-xl hover:border-blue-500 cursor-pointer'}`}>
                                     <div>
                                         <h3 className="font-bold text-gray-800 truncate">{product.name}</h3>
                                         <p className="text-xs text-gray-500 truncate">{product.laboratory}</p>
+                                        {hasExpiredLots && (
+                                            <p className="text-xs text-red-500 mt-1">⚠️ Tiene lotes vencidos</p>
+                                        )}
                                     </div>
-                                    <p className={`text-lg font-semibold mt-2 ${hasStock ? 'text-blue-600' : 'text-red-500'}`}>Stock Total: {totalStock} Uds.</p>
+                                    <p className={`text-lg font-semibold mt-2 ${hasStock ? 'text-blue-600' : 'text-red-500'}`}>Stock Disponible: {totalStock} Uds.</p>
                                 </div>
                             )
                         })}

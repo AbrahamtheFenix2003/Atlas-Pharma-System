@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config.js';
-import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment, updateDoc } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, doc, runTransaction, increment } from 'firebase/firestore';
 import Modal from '../components/common/Modal.jsx';
 import { XCircle, AlertTriangle } from 'lucide-react';
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, addDoc, query, where, getDocs, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import CashRegisterReport from '../components/CashRegisterReport';
 
 const CashRegister = ({ user }) => {
   const [openingBalance, setOpeningBalance] = useState('');
@@ -8,6 +9,7 @@ const CashRegister = ({ user }) => {
   const [cashDrawer, setCashDrawer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     const fetchCashDrawer = async () => {
@@ -61,22 +63,34 @@ const CashRegister = ({ user }) => {
     }
   };
 
-  const handleCloseDrawer = async (e) => {
+  const handlePreCloseDrawer = async (e) => {
     e.preventDefault();
     if (!closingBalance || isNaN(closingBalance)) {
       setError('Por favor, introduce un saldo final válido.');
       return;
     }
 
+    // Actualizar el cashDrawer con el saldo de cierre para el reporte
+    const updatedDrawer = {
+      ...cashDrawer,
+      closingBalance: parseFloat(closingBalance)
+    };
+    setCashDrawer(updatedDrawer);
+    setShowReport(true);
+  };
+
+  const handleConfirmClose = async (report) => {
     try {
       const drawerRef = doc(db, 'cash_drawers', cashDrawer.id);
       await updateDoc(drawerRef, {
         closingBalance: parseFloat(closingBalance),
         status: 'closed',
         closedAt: serverTimestamp(),
+        report: report // Guardar el reporte completo
       });
       setCashDrawer(null);
       setClosingBalance('');
+      setShowReport(false);
       setError('');
     } catch (err) {
       setError('Error al cerrar la caja.');
@@ -135,11 +149,12 @@ const CashRegister = ({ user }) => {
               <span>S/ {balances.total.toFixed(2)}</span>
             </div>
           </div>
-          <form onSubmit={handleCloseDrawer}>
+          <form onSubmit={handlePreCloseDrawer}>
             <div className="mb-4">
               <label htmlFor="closingBalance" className="block text-lg font-medium text-gray-700">Saldo de Cierre (conteo de efectivo)</label>
               <input
                 type="number"
+                step="0.01"
                 id="closingBalance"
                 value={closingBalance}
                 onChange={(e) => setClosingBalance(e.target.value)}
@@ -151,7 +166,7 @@ const CashRegister = ({ user }) => {
               type="submit"
               className="w-full bg-red-500 text-white py-2 px-4 rounded-md hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
             >
-              Cerrar Caja
+              Generar Reporte de Cierre
             </button>
           </form>
         </div>
@@ -163,6 +178,7 @@ const CashRegister = ({ user }) => {
               <label htmlFor="openingBalance" className="block text-lg font-medium text-gray-700">Saldo Inicial</label>
               <input
                 type="number"
+                step="0.01"
                 id="openingBalance"
                 value={openingBalance}
                 onChange={(e) => setOpeningBalance(e.target.value)}
@@ -178,6 +194,15 @@ const CashRegister = ({ user }) => {
             </button>
           </form>
         </div>
+      )}
+
+      {/* Modal de reporte detallado */}
+      {showReport && cashDrawer && (
+        <CashRegisterReport
+          cashDrawer={cashDrawer}
+          onClose={() => setShowReport(false)}
+          onConfirmClose={handleConfirmClose}
+        />
       )}
     </div>
   );

@@ -19,6 +19,7 @@ import SalesHistory from './pages/SalesHistory.jsx';
 import Reports from './pages/Reports.jsx';
 import Alerts from './pages/Alerts.jsx';
 import CashRegister from './pages/CashRegister.jsx';
+import CashRegisterHistory from './pages/CashRegisterHistory.jsx';
 
 function App() {
   const [view, setView] = useState('dashboard');
@@ -60,7 +61,7 @@ function App() {
   
   const renderView = () => {
     const props = { showNotification, user }; 
-    const vendedorViews = ['dashboard', 'pos', 'alerts', 'history'];
+    const vendedorViews = ['dashboard', 'pos', 'alerts', 'history', 'cash-register', 'cash-history'];
 
     if (user && user.role === 'vendedor' && !vendedorViews.includes(view)) {
       return <Dashboard {...props} />;
@@ -74,6 +75,7 @@ function App() {
       case 'reports': return <Reports {...props} />;
       case 'alerts': return <Alerts {...props} />;
       case 'cash-register': return <CashRegister {...props} />;
+      case 'cash-history': return <CashRegisterHistory {...props} />;
       default: return <Dashboard {...props} />;
     }
   };

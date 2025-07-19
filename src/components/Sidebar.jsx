@@ -1,26 +1,72 @@
 // src/components/Sidebar.jsx
 
-import { Home, Package, ShoppingCart, History, Bell, BarChart3, LogOut, User, ChevronsLeft, ChevronsRight, Landmark } from 'lucide-react';
-import { auth } from '../firebase/config.js';
+import React, { useState, useEffect } from 'react';
+import { Home, Package, ShoppingCart, History, Bell, BarChart3, LogOut, User, ChevronsLeft, ChevronsRight, Landmark, FileText } from 'lucide-react';
+import { auth, db } from '../firebase/config.js';
 import { signOut } from 'firebase/auth';
+import { collection, onSnapshot, query, where } from 'firebase/firestore';
 
-const NavItem = ({ icon, label, currentView, targetView, setView, setIsOpen, isCollapsed }) => (
+const NavItem = ({ icon, label, currentView, targetView, setView, setIsOpen, isCollapsed, alertCount = 0 }) => (
     <button
         onClick={() => {
             setView(targetView);
             setIsOpen(false); // Cierra el menú al navegar
         }}
         title={isCollapsed ? label : ''}
-        className={`flex items-center px-4 py-3 text-lg rounded-lg transition-colors w-full text-left 
+        className={`flex items-center px-4 py-3 text-lg rounded-lg transition-colors w-full text-left relative
                    ${currentView === targetView ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-blue-100'}
                    ${isCollapsed ? 'md:justify-center' : ''}`}
     >
-        {icon}
+        <div className="relative">
+            {icon}
+            {alertCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    {alertCount > 99 ? '99+' : alertCount}
+                </span>
+            )}
+        </div>
         <span className={`ml-4 ${isCollapsed ? 'md:hidden' : ''}`}>{label}</span>
     </button>
 );
 
 const Sidebar = ({ view, setView, user, isOpen, setIsOpen, isCollapsed, setIsCollapsed }) => {
+    const [alertsCount, setAlertsCount] = useState(0);
+
+    useEffect(() => {
+        if (!user) return;
+        
+        const lotsQuery = query(collection(db, "productLots"), where("isActive", "==", true));
+        const unsubscribe = onSnapshot(lotsQuery, (snapshot) => {
+            let totalAlerts = 0;
+            const today = new Date();
+            const thirtyDaysFromNow = new Date();
+            thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+            
+            snapshot.forEach(doc => {
+                const lot = { id: doc.id, ...doc.data() };
+                
+                // Contar productos vencidos
+                if (lot.expiryDate && lot.expiryDate.toDate() < today) {
+                    totalAlerts++;
+                    return;
+                }
+                
+                // Contar bajo stock
+                if (lot.stock > 0 && lot.stock <= lot.lowStockThreshold) {
+                    totalAlerts++;
+                }
+                
+                // Contar próximos a vencer
+                if (lot.expiryDate && lot.expiryDate.toDate() < thirtyDaysFromNow && lot.expiryDate.toDate() >= today) {
+                    totalAlerts++;
+                }
+            });
+            
+            setAlertsCount(totalAlerts);
+        });
+        
+        return () => unsubscribe();
+    }, [user]);
     
     const handleLogout = async () => {
         setIsOpen(false);
@@ -59,9 +105,10 @@ const Sidebar = ({ view, setView, user, isOpen, setIsOpen, isCollapsed, setIsCol
             <nav className="flex flex-col space-y-2 flex-grow overflow-y-auto">
                 <NavItem icon={<Home size={24} />} label="Dashboard" currentView={view} targetView="dashboard" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
                 <NavItem icon={<ShoppingCart size={24} />} label="Punto de Venta" currentView={view} targetView="pos" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
-                <NavItem icon={<Bell size={24} />} label="Alertas" currentView={view} targetView="alerts" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
+                <NavItem icon={<Bell size={24} />} label="Alertas" currentView={view} targetView="alerts" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} alertCount={alertsCount} />
                 <NavItem icon={<History size={24} />} label="Historial" currentView={view} targetView="history" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
                 <NavItem icon={<Landmark size={24} />} label="Caja" currentView={view} targetView="cash-register" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
+                <NavItem icon={<FileText size={24} />} label="Historial de Cajas" currentView={view} targetView="cash-history" setView={setView} setIsOpen={setIsOpen} isCollapsed={isCollapsed} />
 
                 {user.role === 'admin' && (
                     <>

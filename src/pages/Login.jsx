@@ -10,11 +10,14 @@ const Login = ({ initialError }) => {
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
+    const [isVisible, setIsVisible] = useState(false);
 
     useEffect(() => {
         if (initialError) {
             setError(initialError);
         }
+        // Activar animación de entrada
+        setTimeout(() => setIsVisible(true), 200);
     }, [initialError]);
 
     const handleLogin = async (e) => {
@@ -44,10 +47,10 @@ const Login = ({ initialError }) => {
     };
 
     return (
-        <div className="flex items-center justify-center min-h-screen bg-gray-100">
-            <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-md">
+        <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700">
+            <div className={`w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg transform transition-all duration-500 ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
                 <div className="text-center">
-                    <h1 className="text-3xl font-bold text-blue-700">Atlas Farma System</h1>
+                    <h1 className="text-4xl font-extrabold text-blue-700">Atlas Farma System</h1>
                     <p className="text-gray-500">Por favor, inicia sesión para continuar</p>
                 </div>
 
@@ -97,7 +100,7 @@ const Login = ({ initialError }) => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
+                            className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-md text-lg font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400"
                         >
                             {isLoading ? 'Ingresando...' : <><LogIn className="mr-2" /> Iniciar Sesión</>}
                         </button>

@@ -288,21 +288,41 @@ const Inventory = ({ showNotification }) => {
                                         <table className="w-full table-auto text-sm">
                                             <thead className="bg-gray-50"><tr><th className="p-2 text-left font-medium text-gray-500">Lote</th><th className="p-2 text-right font-medium text-gray-500">Stock</th><th className="p-2 text-right font-medium text-gray-500">Precio Venta</th><th className="p-2 text-center font-medium text-gray-500">Vence</th><th className="p-2 text-center font-medium text-gray-500">Estado</th><th className="p-2 text-center font-medium text-gray-500">Acciones</th></tr></thead>
                                             <tbody className="divide-y">
-                                                {productLots.map(lot => (
-                                                    <tr key={lot.id} className={!lot.isActive ? 'bg-gray-100 text-gray-400' : ''}>
-                                                        <td className="p-2">{lot.lotNumber}</td>
-                                                        <td className="p-2 text-right">{lot.stock}</td>
-                                                        <td className="p-2 text-right">S/ {lot.price.toFixed(2)}</td>
-                                                        <td className="p-2 text-center">{lot.expiryDate ? lot.expiryDate.toDate().toLocaleDateString('es-ES') : 'N/A'}</td>
-                                                        <td className="p-2 text-center"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${lot.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>{lot.isActive ? 'Activo' : 'Archivado'}</span></td>
-                                                        <td className="p-2 text-center space-x-2">
-                                                            <button onClick={() => handleOpenLotModal(product, lot)} className="text-blue-600 hover:text-blue-900" title="Editar Lote"><Edit size={16} /></button>
-                                                            <button onClick={() => handleArchiveLot(lot.id, lot.isActive)} className={`${lot.isActive ? 'text-gray-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'}`} title={lot.isActive ? 'Archivar Lote' : 'Reactivar Lote'}>
-                                                                {lot.isActive ? <Archive size={16} /> : <Eye size={16}/>}
-                                                            </button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {productLots.map(lot => {
+                                                    const today = new Date();
+                                                    const isExpired = lot.expiryDate && lot.expiryDate.toDate() < today;
+                                                    const isExpiringSoon = lot.expiryDate && !isExpired && lot.expiryDate.toDate() <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+                                                    
+                                                    return (
+                                                        <tr key={lot.id} className={`${!lot.isActive ? 'bg-gray-100 text-gray-400' : isExpired ? 'bg-red-50 text-red-800' : isExpiringSoon ? 'bg-yellow-50' : ''}`}>
+                                                            <td className="p-2">
+                                                                {lot.lotNumber}
+                                                                {isExpired && <span className="ml-2 text-xs bg-red-200 text-red-800 px-2 py-1 rounded">VENCIDO</span>}
+                                                                {isExpiringSoon && !isExpired && <span className="ml-2 text-xs bg-yellow-200 text-yellow-800 px-2 py-1 rounded">POR VENCER</span>}
+                                                            </td>
+                                                            <td className="p-2 text-right">{lot.stock}</td>
+                                                            <td className="p-2 text-right">S/ {lot.price.toFixed(2)}</td>
+                                                            <td className="p-2 text-center">
+                                                                {lot.expiryDate ? (
+                                                                    <span className={isExpired ? 'text-red-600 font-bold' : isExpiringSoon ? 'text-yellow-600 font-bold' : ''}>
+                                                                        {lot.expiryDate.toDate().toLocaleDateString('es-ES')}
+                                                                    </span>
+                                                                ) : 'N/A'}
+                                                            </td>
+                                                            <td className="p-2 text-center">
+                                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${lot.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                                                    {lot.isActive ? 'Activo' : 'Archivado'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-2 text-center space-x-2">
+                                                                <button onClick={() => handleOpenLotModal(product, lot)} className="text-blue-600 hover:text-blue-900" title="Editar Lote"><Edit size={16} /></button>
+                                                                <button onClick={() => handleArchiveLot(lot.id, lot.isActive)} className={`${lot.isActive ? 'text-gray-500 hover:text-red-700' : 'text-green-500 hover:text-green-700'}`} title={lot.isActive ? 'Archivar Lote' : 'Reactivar Lote'}>
+                                                                    {lot.isActive ? <Archive size={16} /> : <Eye size={16}/>}
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
