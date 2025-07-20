@@ -24,21 +24,26 @@ const CashRegisterHistory = ({ user }) => {
         // Admins pueden ver todas las cajas
         q = query(collection(db, 'cash_drawers'), orderBy('openedAt', 'desc'));
       } else {
-        // Vendedores solo ven sus propias cajas
+        // Vendedores solo ven sus propias cajas (sin orderBy para evitar índice compuesto)
         q = query(
           collection(db, 'cash_drawers'), 
-          where('userId', '==', user.uid),
-          orderBy('openedAt', 'desc')
+          where('userId', '==', user.uid)
         );
       }
       
       const querySnapshot = await getDocs(q);
-      const registers = querySnapshot.docs.map(doc => ({ 
+      let registers = querySnapshot.docs.map(doc => ({ 
         id: doc.id, 
         ...doc.data(),
         openedAt: doc.data().openedAt?.toDate(),
         closedAt: doc.data().closedAt?.toDate()
       }));
+
+      // Para vendedores, ordenar manualmente
+      if (user.role !== 'admin') {
+        registers = registers.sort((a, b) => (b.openedAt?.getTime() || 0) - (a.openedAt?.getTime() || 0));
+      }
+
       setCashRegisters(registers);
     } catch (error) {
       console.error('Error fetching cash registers:', error);

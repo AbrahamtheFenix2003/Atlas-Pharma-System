@@ -136,15 +136,21 @@ const PointOfSale = ({ showNotification, user, setView }) => {
     useEffect(() => {
         const fetchCashDrawer = async () => {
             if (!user) return;
+            // Buscar cualquier caja abierta (no filtrar por usuario específico)
             const q = query(
                 collection(db, 'cash_drawers'),
-                where('status', '==', 'open'),
-                where('userId', '==', user.uid)
+                where('status', '==', 'open')
             );
             const querySnapshot = await getDocs(q);
             if (!querySnapshot.empty) {
-                const drawer = querySnapshot.docs[0];
-                setCashDrawer({ id: drawer.id, ...drawer.data() });
+                // Si hay múltiples cajas abiertas, tomar la más reciente
+                const drawers = querySnapshot.docs.map(doc => ({
+                    id: doc.id,
+                    ...doc.data()
+                }));
+                // Ordenar por fecha de apertura (más reciente primero)
+                drawers.sort((a, b) => (b.openedAt?.toMillis() || 0) - (a.openedAt?.toMillis() || 0));
+                setCashDrawer(drawers[0]);
             } else {
                 setCashDrawer(null);
             }
@@ -292,15 +298,30 @@ const PointOfSale = ({ showNotification, user, setView }) => {
                 {!cashDrawer ? (
                     <div className="flex flex-col items-center justify-center h-full text-center">
                         <Landmark size={48} className="text-red-500 mb-4" />
-                        <h3 className="text-xl font-bold text-gray-800">Caja Cerrada</h3>
-                        <p className="text-gray-600 mb-4">Debes abrir la caja para registrar ventas.</p>
+                        <h3 className="text-xl font-bold text-gray-800">Sin Caja Disponible</h3>
+                        <p className="text-gray-600 mb-4">
+                            No hay ninguna caja abierta. Necesitas abrir una caja para registrar ventas.
+                        </p>
                         <button onClick={() => setView('cash-register')} className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
                             Ir a Gestión de Caja
                         </button>
                     </div>
                 ) : (
                     <>
-                        <h3 className="text-xl font-bold border-b pb-3 mb-4 flex items-center"><ShoppingCart className="mr-2"/> Carrito</h3>
+                        <h3 className="text-xl font-bold border-b pb-3 mb-2 flex items-center"><ShoppingCart className="mr-2"/> Carrito</h3>
+                        
+                        {/* Información de la caja actual */}
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-2 mb-4 text-xs">
+                            <div className="flex justify-between items-center">
+                                <span className="text-green-700 font-medium">
+                                    Caja: {cashDrawer.userName}
+                                </span>
+                                <span className="text-green-600">
+                                    S/ {cashDrawer.openingBalance.toFixed(2)}
+                                </span>
+                            </div>
+                        </div>
+
                         {cart.length === 0 ? <p className="text-gray-500 flex-grow text-center mt-20">El carrito está vacío</p> : (
                             <div className="flex-grow overflow-y-auto -mx-6 px-6">
                                 {cart.map(item => (

@@ -10,6 +10,7 @@ import Login from './pages/Login.jsx';
 import Sidebar from './components/Sidebar.jsx';
 import Header from './components/Header.jsx';
 import Notification from './components/common/Notification.jsx';
+import UpdateNotification from './components/common/UpdateNotification.jsx';
 
 // Páginas
 import Dashboard from './pages/Dashboard.jsx';
@@ -117,6 +118,8 @@ function App() {
             onClose={() => setNotification({ show: false, message: '', type: '' })}
         />
       )}
+      
+      <UpdateNotification />
     </div>
   );
 }
